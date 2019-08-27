@@ -5,7 +5,8 @@ import random
 import csv
 import inspect
 import termios, tty, os
- 
+import simpleaudio
+
 # getch method used to process key inputs immediately from the user without need to press the enter key to submit
 def getch():
     fd = sys.stdin.fileno()
@@ -28,7 +29,7 @@ class World:
         BORDER = " ="
     
     # Initializes the world with specified default properties
-    def __init__(self, title, worldSize, debug=False):
+    def __init__(self, title, worldSize, debug=False, bgm=''):
         logging.basicConfig(filename='world.log',level=logging.DEBUG)
         logging.info("Initializing world...")
         self.debug = debug
@@ -41,6 +42,7 @@ class World:
         self.worldSize = worldSize
         self.generate_world_array()
         self.generate_world_display()
+        self.bgm_filename = bgm
         self.render_cycle = 0
 
     # Adds a passed entity to the world
@@ -115,6 +117,17 @@ class World:
         if not waiting:
             self.listen()
 
+    # Plays a sound from the given .wav filename
+    def play_sound(self, filename):
+        wave_obj = simpleaudio.WaveObject.from_wave_file(filename)
+        wave_obj.play()
+
+    # Plays a bgm track from the given .wav filename
+    def play_bgm(self, filename):
+        self.bgm_initialized = True
+        wave_obj = simpleaudio.WaveObject.from_wave_file(filename)
+        self.play_obj = wave_obj.play()
+    
     # Renders a specified amount of frames without waiting for user key input
     def wait(self, frames):
         for _ in range(frames):
@@ -144,6 +157,10 @@ class World:
         logging.info(f'Updating world {self.title}...')
         if self.debug:
             print(f'Updating world {self.title}...')
+            print(f'World {self.title} is on render cycle {self.render_cycle}')
+        if self.bgm_filename != '':
+            if not hasattr(self, 'play_obj') or not self.play_obj.is_playing():
+                self.play_bgm(self.bgm_filename)
         purged_entities = []
         for entity in self.entities:
                 if entity.alive:

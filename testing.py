@@ -2,7 +2,7 @@ from TDTBGE import World, Entity
 
 worldSize = [ 20,20 ]
 
-world = World('Test World', worldSize, debug=True)
+world = World('Test World', worldSize, debug=True, bgm='audio/adventure_theme.wav')
 
 food = Entity(
     'food',
@@ -32,6 +32,7 @@ def e(entity, world):
             if entity.is_touching(entity2):
                 entity.attributes['hunger'] -= entity2.attributes['value']
                 entity2.destroy()
+                world.play_sound('audio/coin.wav')
 
 def p(world):
     world.wait(5)
