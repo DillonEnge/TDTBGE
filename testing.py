@@ -2,7 +2,7 @@ from TDTBGE import World, Entity
 
 worldSize = [ 20,20 ]
 
-world = World('Test World', worldSize)
+world = World('Test World', worldSize, debug=True)
 
 food = Entity(
     'food',
@@ -50,6 +50,7 @@ player = Entity(
     ],
     [ 1,1 ],
     determine_state_method=determine_state,
+    debug=True,
     hunger=10
 )
 
