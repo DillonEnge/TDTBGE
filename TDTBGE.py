@@ -21,9 +21,12 @@ class World:
         BORDER = " ="
     
     # Initializes the world with specified default properties
-    def __init__(self, title, worldSize, debug=False, bgm=''):
+    def __init__(self, title, world_size, debug=False, bgm='', **kwargs):
         logging.basicConfig(filename='world.log',level=logging.DEBUG)
         logging.info("Initializing world...")
+        self.attributes = {}
+        for key, value in kwargs.items():
+            self.attributes[key] = value
         self.debug = debug
         if self.debug:
             print("Initializing world...")
@@ -31,7 +34,7 @@ class World:
         self.controllers = {}
         self.entities = []
         self.sprite_cache = []
-        self.worldSize = worldSize
+        self.world_size = world_size
         self.bgm_filename = bgm
         self.render_cycle = 0
 
@@ -56,7 +59,7 @@ class World:
 
     # Generates non-visual world array map used to derive the world display from
     def generate_world_array(self):
-        world_array = [[-1 for x in range(self.worldSize[1])] for y in range(self.worldSize[0])]
+        world_array = [[-1 for x in range(self.world_size[1])] for y in range(self.world_size[0])]
 
         for entity in self.entities:
             world_array[entity.position[0]][entity.position[1]] = entity.determine_state(self.sprite_cache)

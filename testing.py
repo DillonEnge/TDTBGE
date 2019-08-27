@@ -1,35 +1,44 @@
 from TDTBGE import World, Entity, Lib
 from colorama import Fore
+import random
 
-worldSize = [ 20,20 ]
+world_size = [ 20,20 ]
 
-world = World('Test World', worldSize, bgm='audio/adventure_theme.wav')
+world = World('Test World', world_size, bgm='audio/adventure_theme.wav')
 
-food = Entity(
-    'food',
-    [
-        { 'default': Lib.color_text('x', Fore.GREEN) }
-    ],
-    [ 5,5 ],
-    value=5
-)
-world.add_entity(food)
+for i in range(10):
+    random_x = random.randint(0,19)
+    random_y = random.randint(0,19)
+    food = Entity(
+        f'food{i}',
+        [
+            { 'default': Lib.color_text('x', Fore.GREEN) }
+        ],
+        [ random_y,random_x ],
+        value=5
+    ) 
+    world.add_entity(food)
 
-def w(entity):
-    entity.modify_pos(y_pos=1)
+def w(entity, world):
+    if entity.get_y_pos() > 0:
+        entity.modify_pos(y_pos=1)
 
 def a(entity):
-    entity.modify_pos(x_pos=-1)
+    if entity.get_x_pos() > 0:
+        entity.modify_pos(x_pos=-1)
 
 def s(entity):
-    entity.modify_pos(y_pos=-1)
+    if entity.get_y_pos() < world.world_size[0] - 1:
+        entity.modify_pos(y_pos=-1)
 
 def d(entity):
-    entity.modify_pos(x_pos=1)
+    if entity.get_x_pos() < world.world_size[1] - 1:
+        entity.modify_pos(x_pos=1)
+        print(entity.get_x_pos())
 
 def e(entity, world):
     for entity2 in world.entities:
-        if entity2.name == 'food':
+        if entity2.name.find('food') != -1:
             if entity.is_touching(entity2):
                 entity.attributes['hunger'] -= entity2.attributes['value']
                 entity2.destroy()
@@ -39,7 +48,7 @@ def p(world):
     world.wait(5)
 
 def determine_state(entity):
-    if entity.attributes['hunger'] > 5:
+    if entity.attributes['hunger'] > 25:
         return 'famished'
     else:
         return 'hungry'
@@ -53,7 +62,7 @@ player = Entity(
     [ 1,1 ],
     determine_state_method=determine_state,
     debug=True,
-    hunger=10
+    hunger=50
 )
 
 player.add_controller(w, 'w')
