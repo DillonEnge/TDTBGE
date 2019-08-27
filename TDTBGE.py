@@ -6,18 +6,10 @@ import csv
 import inspect
 import termios, tty, os
 import simpleaudio
+from os import system, name
+from colorama import Fore, Style
 
-# getch method used to process key inputs immediately from the user without need to press the enter key to submit
-def getch():
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-    try:
-        tty.setraw(sys.stdin.fileno())
-        ch = sys.stdin.read(1)
- 
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    return ch
+
 
 # World class used for world generation, rendering, and manipulation
 class World:
@@ -40,8 +32,6 @@ class World:
         self.entities = []
         self.sprite_cache = []
         self.worldSize = worldSize
-        self.generate_world_array()
-        self.generate_world_display()
         self.bgm_filename = bgm
         self.render_cycle = 0
 
@@ -111,6 +101,7 @@ class World:
 
     # Renders the world by updating the world then printing the display and waiting for user key input
     def render(self, waiting=False):
+        Lib.clear()
         self.update()
         print(self.world_display)
         self.render_cycle += 1
@@ -135,7 +126,7 @@ class World:
 
     # Listens for keyboard inputs and processes the inputs for any world/entity controller that shares that key name
     def listen(self):
-        key = getch()
+        key = Lib.getch()
         time.sleep(0)
 
         logging.info('key pressed: ' + key)
@@ -246,3 +237,30 @@ class Entity:
         logging.info(f'updating entity {self.name}...')
         if self.debug:
             print(self.attributes)
+
+class Lib:
+    # Returns text colored using colorama and takes text to be colored plus a colorama Fore color specification
+    @staticmethod
+    def color_text(text, color):
+        return f'{color}{text}{Style.RESET_ALL}'
+
+    # getch method used to process key inputs immediately from the user without need to press the enter key to submit
+    @staticmethod
+    def getch():
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+    
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+
+    # Clears display in between renders
+    @staticmethod
+    def clear(): 
+        if name == 'nt': 
+            _ = system('cls') 
+        else: 
+            _ = system('clear') 

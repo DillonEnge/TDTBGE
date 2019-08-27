@@ -1,13 +1,14 @@
-from TDTBGE import World, Entity
+from TDTBGE import World, Entity, Lib
+from colorama import Fore
 
 worldSize = [ 20,20 ]
 
-world = World('Test World', worldSize, debug=True, bgm='audio/adventure_theme.wav')
+world = World('Test World', worldSize, bgm='audio/adventure_theme.wav')
 
 food = Entity(
     'food',
     [
-        { 'default': 'x' }
+        { 'default': Lib.color_text('x', Fore.GREEN) }
     ],
     [ 5,5 ],
     value=5
@@ -46,8 +47,8 @@ def determine_state(entity):
 player = Entity(
     'player',
     [
-        { 'hungry': 'O' },
-        { 'famished': 'o' }
+        { 'hungry': Lib.color_text('O', Fore.BLUE) },
+        { 'famished': Lib.color_text('o', Fore.LIGHTCYAN_EX) }
     ],
     [ 1,1 ],
     determine_state_method=determine_state,
