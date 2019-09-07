@@ -13,15 +13,8 @@ from colorama import Fore, Style
 
 # World class used for world generation, rendering, and manipulation
 class World:
-    # Generic character constants class to be used in world framing
-    class CHARACTER:
-        END_WALL = " ||\n"
-        SPACE = " -"
-        WALL = "||"   
-        BORDER = " ="
-    
     # Initializes the world with specified default properties
-    def __init__(self, title, world_size, debug=False, bgm='', **kwargs):
+    def __init__(self, title, world_size, window_size, window_pos=[0,0], debug=False, bgm='', **kwargs):
         logging.basicConfig(filename='world.log',level=logging.DEBUG)
         logging.info("Initializing world...")
         self.attributes = {}
@@ -35,6 +28,8 @@ class World:
         self.entities = []
         self.sprite_cache = []
         self.world_size = world_size
+        self.window_size = window_size
+        self.window_pos = window_pos
         self.bgm_filename = bgm
         self.render_cycle = 0
 
@@ -42,6 +37,11 @@ class World:
     def add_entity(self, entity):
         self.entities.append(entity)
         self.update_sprite_cache(entity)
+
+    # Incrementally modifies the current entity position
+    def modify_window_pos(self, x_pos = 0, y_pos = 0):
+        self.window_pos[1] += x_pos
+        self.window_pos[0] -= y_pos
 
     # Adds a controller to the world
     # Takes the controller function and the key string that is pressed to activate that function
@@ -62,7 +62,15 @@ class World:
         world_array = [[-1 for x in range(self.world_size[1])] for y in range(self.world_size[0])]
 
         for entity in self.entities:
-            world_array[entity.position[0]][entity.position[1]] = entity.determine_state(self.sprite_cache)
+            if not entity.abstract:
+                for arr in entity.grouping_map:
+                    if len(arr) == 3:
+                        for nested_arr in arr[2].grouping_map:
+                            x_pos = entity.position[1] + arr[1] + nested_arr[1]
+                            y_pos = entity.position[0] + arr[0] + nested_arr[0]
+                            world_array[y_pos][x_pos] = arr[2].determine_state(self, pos=[entity.position[0] + arr[0], entity.position[1] + arr[1]])
+                    else:
+                        world_array[entity.position[0] + arr[0]][entity.position[1] + arr[1]] = entity.determine_state(self)
 
         self.world_array = world_array
 
@@ -70,33 +78,35 @@ class World:
     def generate_world_display(self):
         world_display = ""
 
-        for x in self.world_array:
-            world_display += self.CHARACTER.WALL
+        for x in range(self.window_size[0]):
+            world_display += Lib.CHARACTER.WALL
+            for y in range(self.window_size[1]):
+                world_display += Lib.CHARACTER.BORDER.lstrip() + Lib.CHARACTER.BORDER.lstrip()
             
-            for y in x:
-                world_display += self.CHARACTER.BORDER.lstrip() + self.CHARACTER.BORDER.lstrip()
-            
-            world_display += self.CHARACTER.BORDER.lstrip() + self.CHARACTER.END_WALL.lstrip()
+            world_display += Lib.CHARACTER.BORDER.lstrip() + Lib.CHARACTER.END_WALL.lstrip()
             break
 
-        for x in self.world_array:
-            world_display += self.CHARACTER.WALL
+        for x in range(self.world_size[0]):
+            if x >= self.window_pos[0] and x < self.window_pos[0] + self.window_size[0]:
+                world_display += Lib.CHARACTER.WALL
 
-            for y in x:
-                if y == -1:
-                    world_display += self.CHARACTER.SPACE
-                else:
-                    world_display += f' {self.sprite_cache[y]}'
+                for y in range(self.world_size[1]):
+                    if y >= self.window_pos[1] and y < self.window_pos[1] + self.window_size[1]:
+                        if self.world_array[x][y] == -1:
+                            world_display += f' {Lib.CHARACTER.SPACE}'
+                        else:
+                            world_display += f' {self.sprite_cache[self.world_array[x][y]]}'
 
-            world_display += self.CHARACTER.END_WALL
+                world_display += Lib.CHARACTER.END_WALL
 
-        for x in self.world_array:
-            world_display += self.CHARACTER.WALL
+
+        for x in range(self.window_size[0]):
+            world_display += Lib.CHARACTER.WALL
             
-            for y in x:
-                world_display += self.CHARACTER.BORDER.lstrip() + self.CHARACTER.BORDER.lstrip()
+            for y in range(self.window_size[1]):
+                world_display += Lib.CHARACTER.BORDER.lstrip() + Lib.CHARACTER.BORDER.lstrip()
             
-            world_display += self.CHARACTER.BORDER.lstrip() + self.CHARACTER.END_WALL.lstrip()
+            world_display += Lib.CHARACTER.BORDER.lstrip() + Lib.CHARACTER.END_WALL.lstrip()
             break
 
         world_display = world_display[:world_display.rfind("\n")]
@@ -104,12 +114,14 @@ class World:
 
     # Renders the world by updating the world then printing the display and waiting for user key input
     def render(self, waiting=False):
-        Lib.clear()
         self.update()
+        if not self.debug:
+            Lib.clear()
         print(self.world_display)
         self.render_cycle += 1
         if not waiting:
             self.listen()
+        
 
     # Plays a sound from the given .wav filename
     def play_sound(self, filename):
@@ -162,6 +174,13 @@ class World:
                 else:
                     purged_entities.append(entity)
         for entity in purged_entities:
+            for nested_entity in self.entities:
+                purged_item = []
+                for x in range(len(nested_entity.grouping_map)):
+                    if entity in nested_entity.grouping_map[x]:
+                        purged_item.append(x)
+                for item in purged_item:
+                    nested_entity.grouping_map.pop(item)
             self.entities.pop(self.entities.index(entity))
         self.generate_world_array()
         self.generate_world_display()
@@ -169,27 +188,52 @@ class World:
 # Entity class used for entity creation, processing, and manipulation
 class Entity:
     # Initializes entity with initial defaults
-    def __init__(self, name, states, initialPosition, determine_state_method=None, debug=False, **kwargs):
+    def __init__(self, name, states, initialPosition=None, abstract=False, grouping_map=[ [0,0] ], determine_state_method=None, debug=False, **kwargs):
         self.alive = True
+        self.abstract = abstract
+        self.name = name
+        self.debug = debug
+        self.interperate_grouping_map(grouping_map)
+        self.states = states
+        self.add_determine_state_method(determine_state_method)
+        if not abstract:
+            self.position = [initialPosition[0], initialPosition[1]]
+        self.controllers = {}
         self.attributes = {}
         for key, value in kwargs.items():
             self.attributes[key] = value
-        self.debug = debug
-        self.determine_state_method = determine_state_method
-        self.name = name
-        self.position = [initialPosition[0], initialPosition[1]]
-        self.states = states
-        self.controllers = {}
+
+    def interperate_grouping_map(self, grouping_map):
+        new_map = []
+        for item in grouping_map:
+            if len(item) == 5:
+                if item[4] == 'square_fill':
+                    for y2 in range(item[0],item[2]):
+                        for x2 in range(item[1],item[3]):
+                            new_map.append([y2,x2])
+                if item[4] == 'square_no_fill':
+                    for y2 in range(item[0],item[2] + 1):
+                        new_map.append([y2,0])
+                        new_map.append([y2,item[3]])
+                        for x2 in range(item[1],item[3]):
+                            new_map.append([0,x2])
+                            new_map.append([item[2],x2])
+            else:
+                new_map.append(item)
+        self.grouping_map = new_map
+
     
     # Determines which visual state character to return from the passed sprite_cache
-    def determine_state(self, sprite_cache):
+    def determine_state(self, world, pos=None):
+        if self.abstract:
+            self.position = pos
         if self.determine_state_method != None:
             for state in self.states:
                 for key in state.keys():
-                    if key == self.determine_state_method(self):
-                        return sprite_cache.index(state[key])
+                    if key == self.determine_state_method(self, world):
+                        return world.sprite_cache.index(state[key])
         else:
-            return sprite_cache.index(self.states[0]['default'])
+            return world.sprite_cache.index(self.states[0]['default'])
 
     # Gets the entities x position
     def get_x_pos(self):
@@ -204,13 +248,24 @@ class Entity:
     def add_controller(self, controller, key):
         if self.debug:
             print(f'adding controller to entity {self.name}...')
+
         source = inspect.getsource(controller)
         new_line_char = '\n'
+        function_name = f'{self.name}_controller_{key}'
+        exec(f"def {function_name}(entity, world): {source[source.index(new_line_char):]}")
 
-        exec(f"def {key}(entity, world): {source[source.index(new_line_char):]}")
+        self.controllers[key] = locals()[function_name]
 
-        self.controllers[key] = locals()[key]
-    
+    def add_determine_state_method(self, determine_state_method):
+        if determine_state_method != None:
+            source = inspect.getsource(determine_state_method)
+            new_line_char = '\n'
+            function_name = f'{self.name}_determine_state_method'
+            exec(f"def {function_name}(entity, world): {source[source.index(new_line_char):]}")
+            self.determine_state_method = locals()[function_name]
+        else:
+            self.determine_state_method = None
+
     # Incrementally modifies the current entity position
     def modify_pos(self, x_pos = 0, y_pos = 0):
         self.position[1] += x_pos
@@ -229,6 +284,14 @@ class Entity:
                         return True
         return False
 
+    # Determines if self will collide with the passed entity
+    def will_collide_with(self, entity, x_pos=0, y_pos=0):
+        for arr in entity.grouping_map:
+            if self.position[0] - y_pos == entity.position[0] + arr[0]:
+                if self.position[1] + x_pos == entity.position[1] + arr[1]:
+                    return True
+        return False
+
     # Destroys entity
     def destroy(self):
         self.alive = False
@@ -242,6 +305,13 @@ class Entity:
             print(self.attributes)
 
 class Lib:
+    # Generic character constants class to be used in world framing
+    class CHARACTER:
+        END_WALL = " ||\n"
+        SPACE = "-"
+        WALL = "||"   
+        BORDER = " ="
+
     # Returns text colored using colorama and takes text to be colored plus a colorama Fore color specification
     @staticmethod
     def color_text(text, color):
@@ -266,4 +336,4 @@ class Lib:
         if name == 'nt': 
             _ = system('cls') 
         else: 
-            _ = system('clear') 
+            _ = system('clear')
