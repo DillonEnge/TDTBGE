@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "tdtbge"
+version = "0.1.0"
+description = ""
+authors = ["DillonEnge <dillon.enge@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+simpleaudio = "^1.0.4"
+colorama = "^0.4.6"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

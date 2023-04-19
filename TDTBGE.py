@@ -82,7 +82,7 @@ class World:
             world_display += Lib.CHARACTER.WALL
             for y in range(self.window_size[1]):
                 world_display += Lib.CHARACTER.BORDER.lstrip() + Lib.CHARACTER.BORDER.lstrip()
-            
+
             world_display += Lib.CHARACTER.BORDER.lstrip() + Lib.CHARACTER.END_WALL.lstrip()
             break
 
@@ -102,10 +102,10 @@ class World:
 
         for x in range(self.window_size[0]):
             world_display += Lib.CHARACTER.WALL
-            
+
             for y in range(self.window_size[1]):
                 world_display += Lib.CHARACTER.BORDER.lstrip() + Lib.CHARACTER.BORDER.lstrip()
-            
+
             world_display += Lib.CHARACTER.BORDER.lstrip() + Lib.CHARACTER.END_WALL.lstrip()
             break
 
@@ -121,7 +121,7 @@ class World:
         self.render_cycle += 1
         if not waiting:
             self.listen()
-        
+
 
     # Plays a sound from the given .wav filename
     def play_sound(self, filename):
@@ -133,7 +133,7 @@ class World:
         self.bgm_initialized = True
         wave_obj = simpleaudio.WaveObject.from_wave_file(filename)
         self.play_obj = wave_obj.play()
-    
+
     # Renders a specified amount of frames without waiting for user key input
     def wait(self, frames):
         for _ in range(frames):
@@ -153,7 +153,7 @@ class World:
 
         if key in self.controllers:
             self.controllers[key](self)
-        
+
         for entity in self.entities:
             if key in entity.controllers:
                 entity.controllers[key](entity, self)
@@ -188,11 +188,13 @@ class World:
 # Entity class used for entity creation, processing, and manipulation
 class Entity:
     # Initializes entity with initial defaults
-    def __init__(self, name, states, initialPosition=None, abstract=False, grouping_map=[ [0,0] ], determine_state_method=None, debug=False, **kwargs):
+    def __init__(self, name, states, initialPosition=None, abstract=False, grouping_map=[ [0,0] ], collision_list=[], determine_state_method=None, debug=False, **kwargs):
         self.alive = True
         self.abstract = abstract
+        self.collision_list = collision_list
         self.name = name
         self.debug = debug
+        self.floating_methods={}
         self.interperate_grouping_map(grouping_map)
         self.states = states
         self.add_determine_state_method(determine_state_method)
@@ -222,7 +224,6 @@ class Entity:
                 new_map.append(item)
         self.grouping_map = new_map
 
-    
     # Determines which visual state character to return from the passed sprite_cache
     def determine_state(self, world, pos=None):
         if self.abstract:
@@ -256,6 +257,17 @@ class Entity:
 
         self.controllers[key] = locals()[function_name]
 
+    def add_floating_method(self, floating_method):
+        if self.debug:
+            print(f'adding floating method to entity {self.name}...')
+
+        source = inspect.getsource(floating_method)
+        new_line_char = '\n'
+        function_name = f'{floating_method.__name__}'
+        exec(f"def {function_name}{source[source.index('('): source.index(')')]}): {source[source.index(new_line_char):]}")
+
+        self.floating_methods[function_name] = locals()[function_name]
+
     def add_determine_state_method(self, determine_state_method):
         if determine_state_method != None:
             source = inspect.getsource(determine_state_method)
@@ -279,17 +291,18 @@ class Entity:
     # Determines if self is touching the passed entity
     def is_touching(self, entity):
         for x in range(-1, 2):
-                for y in range(-1, 2):
-                    if self.position == [entity.position[0] + x, entity.position[1] + y]:
-                        return True
+            for y in range(-1, 2):
+                if self.position == [entity.position[0] + x, entity.position[1] + y]:
+                    return True
         return False
 
     # Determines if self will collide with the passed entity
     def will_collide_with(self, entity, x_pos=0, y_pos=0):
-        for arr in entity.grouping_map:
-            if self.position[0] - y_pos == entity.position[0] + arr[0]:
-                if self.position[1] + x_pos == entity.position[1] + arr[1]:
-                    return True
+        if self.name in entity.collision_list:
+            for arr in entity.grouping_map:
+                if self.position[0] - y_pos == entity.position[0] + arr[0]:
+                    if self.position[1] + x_pos == entity.position[1] + arr[1]:
+                        return True
         return False
 
     # Destroys entity
@@ -309,7 +322,7 @@ class Lib:
     class CHARACTER:
         END_WALL = " ||\n"
         SPACE = "-"
-        WALL = "||"   
+        WALL = "||"
         BORDER = " ="
 
     # Returns text colored using colorama and takes text to be colored plus a colorama Fore color specification
@@ -325,15 +338,15 @@ class Lib:
         try:
             tty.setraw(sys.stdin.fileno())
             ch = sys.stdin.read(1)
-    
+
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
 
     # Clears display in between renders
     @staticmethod
-    def clear(): 
-        if name == 'nt': 
-            _ = system('cls') 
-        else: 
+    def clear():
+        if name == 'nt':
+            _ = system('cls')
+        else:
             _ = system('clear')

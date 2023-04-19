@@ -4,7 +4,7 @@ import random
 
 world_size = [ 200,200 ]
 
-window_size = [ 20,20 ]
+window_size = [ 30,30 ]
 
 window_pos = [0,0]
 
@@ -24,12 +24,19 @@ for i in range(int(world_size[0]/2)):
     )
     world.add_entity(food)
 
+def path_clear(entity, world, x_pos=0, y_pos=0):
+    for world_entity in world.entities:
+        if entity.will_collide_with(world_entity, x_pos, y_pos):
+            return False
+    return True
+
 def w(entity, world):
-    if entity.get_y_pos() > world.window_pos[0]:
-        entity.modify_pos(y_pos=1)
-    elif world.window_pos[0] > 0:
-        world.modify_window_pos(y_pos=1)
-        entity.modify_pos(y_pos=1)
+    if entity.floating_methods['path_clear'](entity, world, y_pos=1):
+        if entity.get_y_pos() > world.window_pos[0]:
+            entity.modify_pos(y_pos=1)
+        elif world.window_pos[0] > 0:
+            world.modify_window_pos(y_pos=1)
+            entity.modify_pos(y_pos=1)
 
 def a(entity, world):
     if entity.get_x_pos() > world.window_pos[1]:
@@ -104,6 +111,7 @@ door = Entity(
     abstract=True,
     determine_state_method=determine_door_state,
     door_open=False,
+    collision_list=['player'],
     censor_name='censor'
 )
 
@@ -113,7 +121,7 @@ def determine_censor_state(entity, world):
             if entity2.attributes['door_open'] == True:
                 pass
     return 'default'
-                
+
 
 censor = Entity(
     'censor',
@@ -132,6 +140,7 @@ house = Entity(
         { 'default': Lib.color_text('X', Fore.MAGENTA) }
     ],
     [ 5,5 ],
+    collision_list=['player'],
     grouping_map=[ [0,0,5,10,'square_no_fill'], [1,1,censor], [0,3,door] ]
 )
 
@@ -141,6 +150,7 @@ player.add_controller(s, 's')
 player.add_controller(d, 'd')
 player.add_controller(e, 'e')
 player.add_controller(o, 'o')
+player.add_floating_method(path_clear)
 world.add_controller(p, 'p')
 
 world.add_entity(house)
